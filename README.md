@@ -37,7 +37,7 @@ This is the base syntax of the website's url. There isn't a search bar implement
 * Single tags - http://e621p.webege.com/?tags=wolf&page=1&limit=15>
 This indicates that were searching for anything tagged with wolf, starting on page one and are loading 15 images per load cycle.
 
-*Multiple tags - http://e621p.webege.com/?tags=wolf+order:score&page=1&limit=15
+* Multiple tags - http://e621p.webege.com/?tags=wolf+order:score&page=1&limit=15
 Just like E621, adding a + between seperate tags combines them and seaches for images which contain all of them.
 
 Source:
