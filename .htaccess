@@ -1,22 +1,24 @@
-Action php54-cgi /php54.cgi
-AddHandler php54-cgi .php
+RewriteEngine on
 
-# Updates here should coincide with rp.getRestOfUrl()
-RewriteEngine On
+# Ensure all directory URLs have a trailing slash.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_URI} !\/$
+RewriteCond %{REQUEST_URI} !\/[^\/]*\.[^\/]+$
+RewriteRule .* http://%{HTTP_HOST}%{REQUEST_URI}/ [L,R=301]
+# Same for HTTPS:
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_URI} !\/$
+RewriteCond %{REQUEST_URI} !\/[^\/]*\.[^\/]+$
+RewriteRule .* https://%{HTTP_HOST}%{REQUEST_URI}/ [L,R=301]
 
-RewriteBase /
-RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
-RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
-
-RewriteRule ^r/(.*) /index.html
-RewriteRule ^user/(.*) /index.html
-RewriteRule ^domain/(.*) /index.html
-RewriteRule ^search(.*) /index.html
-
-# to hide .git and allow redditp.com/.compact
-RewriteRule ^\.(.*) /index.html
-
-# new multireddits with /me/
-RewriteRule ^me/(.*) /index.html
-
+# Custom error pages.
 ErrorDocument 404 /404.html
+
+# Prevent viewing of htaccess file.
+<Files .htaccess>
+    order allow,deny
+    deny from all
+</Files>
+
+# Prevent directory listings
+Options All -Indexes

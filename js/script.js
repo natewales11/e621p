@@ -1,17 +1,17 @@
 /*
-  Author: Yuval Greenfield (http://uberpython.wordpress.com) 
- 
-  You can save the HTML file and use it locally btw like so:
-    file:///wherever/index.html?/r/aww
- 
+  Author of RedditP: Yuval Greenfield (http://ubeepython.wordpress.com)
+  Modifier to E621P: SilentDeath1 (https://github.com/SilentDeath1/e621p)
+
   Favicon by Double-J designs http://www.iconfinder.com/icondetails/68600/64/_icon
   HTML based on http://demo.marcofolio.net/fullscreen_image_slider/
   Author of slideshow base :      Marco Kuiper (http://www.marcofolio.net/)
 */
 
-// TODO: refactor all the globals to use the rp object's namespace.
-var rp = {};
-rp.debug = true;
+// TODO: refactor all the globals to use the ep object's namespace.
+var ep = {};
+ep.debug = true;
+// If there are no images loaded from the First URL for some reason (incorrect format), imageIndex is needed for startAnimation.
+imageIndex = 0;
 
 // Speed of the animation
 var animationSpeed = 1000;
@@ -19,9 +19,19 @@ var shouldAutoNextSlide = true;
 var timeToNextSlide = 6 * 1000;
 var cookieDays = 300;
 
+// These vars are used for AJAX Url.
+var tags = '';
+var limit = 10;
+var pageNumber = 1;
+var rating = '';
+
+// These variables are used to decide if there is more data from the API.
+var failedImageNumber = 0;
+var successImageNumber = 0;
+
 // Variable to store the images we need to set as background
 // which also includes some text and url's.
-rp.photos = [];
+ep.photos = [];
 
 // 0-based index to set which picture to show first
 // init to -1 until the first image is loaded
@@ -53,8 +63,30 @@ window.log = function () {
 
 $(function () {
 
-    $("#subredditUrl").text("Loading Reddit Slideshow");
-    $("#navboxTitle").text("Loading Reddit Slideshow");
+    $("#subredditUrl").text("Loading E621 Slideshow");
+    $("#navboxTitle").text("Loading E621 Slideshow");
+
+    if(getQueryVariable("tags")== '' /*|| (typeof getQueryVariable("tags")) != "string"*/){
+			tags = '';
+      console.log('You can search specific tags by specifying ?tags= in the URL e.g. /?tags=wolf&page=1&limit=10');
+		}else{
+			tags = getQueryVariable("tags");
+		}
+
+		if(getQueryVariable("page")== 0 /*|| (typeof getQueryVariable("page")) != "number"*/){
+			afterNumber = 1;
+      console.log('You can select a specific page for results by specifying ?page= in the URL e.g. /?tags=wolf&page=1&limit=10');
+		}else{
+			afterNumber = getQueryVariable("page");
+		}
+
+    if(getQueryVariable("limit")== 0 /*|| ((typeof getQueryVariable("limit")) != "number")*/){
+			limit = 5;
+      console.log('You can specify images per load cycle by specifying ?limit= in the URL e.g. /?tags=wolf&page=1&limit=10');
+		}else{
+			limit = getQueryVariable("limit");
+		}
+
 
     fadeoutWhenIdle = true;
     var setupFadeoutOnIdle = function () {
@@ -88,8 +120,8 @@ $(function () {
 
     function nextSlide() {
         if(!nsfw) {
-            for(var i = activeIndex + 1; i < rp.photos.length; i++) {
-                if (!rp.photos[i].over18) {
+            for(var i = activeIndex + 1; i < ep.photos.length; i++) {
+                if (!ep.photos[i].over18) {
                     return startAnimation(i);
                 }
             }
@@ -104,7 +136,7 @@ $(function () {
     function prevSlide() {
         if(!nsfw) {
             for(var i = activeIndex - 1; i > 0; i--) {
-                if (!rp.photos[i].over18) {
+                if (!ep.photos[i].over18) {
                     return startAnimation(i);
                 }
             }
@@ -112,19 +144,29 @@ $(function () {
         startAnimation(activeIndex - 1);
     }
 
-    
+
     var autoNextSlide = function () {
         if (shouldAutoNextSlide) {
             // startAnimation takes care of the setTimeout
             nextSlide();
         }
     };
-    
+
+    function getQueryVariable(variable) {
+     var query = window.location.search.substring(1);
+     var vars = query.split("&");
+     for (var i=0;i<vars.length;i++) {
+           var pair = vars[i].split("=");
+           if(pair[0] == variable){return pair[1];}
+     }
+      return(false);
+    }
+
     function open_in_background(selector){
         // as per https://developer.mozilla.org/en-US/docs/Web/API/event.initMouseEvent
         // works on latest chrome, safari and opera
         var link = $(selector)[0];
-        
+
         // Simulating a ctrl key won't trigger a background tab on IE and Firefox ( https://bugzilla.mozilla.org/show_bug.cgi?id=812202 )
         // so we need to open a new window
         if ( navigator.userAgent.match(/msie/i) || navigator.userAgent.match(/trident/i)  || navigator.userAgent.match(/firefox/i) ){
@@ -189,11 +231,19 @@ $(function () {
         }
     };
 
-    var setCookie = function (c_name, value, exdays) {
-        var exdate = new Date();
-        exdate.setDate(exdate.getDate() + exdays);
-        var c_value = escape(value) + ((exdays === null) ? "" : "; expires=" + exdate.toUTCString());
-        document.cookie = c_name + "=" + c_value;
+    var setCookie = function (c_name, value, exdays, dors) {
+        if(dors == "d"){
+            var exdate = new Date();
+            exdate.setDate(exdate.getDate() + exdays);
+            var c_value = escape(value) + ((exdays === null) ? "" : "; expires=" + exdate.toUTCString());
+            document.cookie = c_name + "=" + c_value;
+        }
+        if(dors == "s"){
+            var exdate = new Date();
+            exdate.setDate(exdate.getTime() + exdays*1000*60);
+            var c_value = escape(value) + ((exdays === null) ? "" : "; expires=" + exdate.toUTCString());
+            document.cookie = c_name + "=" + c_value;
+        }
     };
 
     var getCookie = function (c_name) {
@@ -217,7 +267,7 @@ $(function () {
     shouldAutoNextSlideCookie = "shouldAutoNextSlideCookie";
     var updateAutoNext = function () {
         shouldAutoNextSlide = $("#autoNextSlide").is(':checked');
-        setCookie(shouldAutoNextSlideCookie, shouldAutoNextSlide, cookieDays);
+        setCookie(shouldAutoNextSlideCookie, shouldAutoNextSlide, cookieDays,"d");
         resetNextSlideTimer();
     };
 
@@ -250,8 +300,12 @@ $(function () {
     nsfwCookie = "nsfwCookie";
     var updateNsfw = function () {
         nsfw = $("#nsfw").is(':checked');
-        setCookie(nsfwCookie, nsfw, cookieDays);
+        setCookie(nsfwCookie, nsfw, cookieDays,"d");
     };
+
+    validCookie = "validCookie";
+    setCookie(validCookie, true, 5,"s")
+
 
     var initState = function () {
         var nsfwByCookie = getCookie(nsfwCookie);
@@ -275,7 +329,7 @@ $(function () {
         var updateTimeToNextSlide = function () {
             var val = $('#timeToNextSlide').val();
             timeToNextSlide = parseFloat(val) * 1000;
-            setCookie(timeToNextSlideCookie, val, cookieDays);
+            setCookie(timeToNextSlideCookie, val, cookieDays,"d");
         };
 
         var timeToNextSlideCookie = "timeToNextSlideCookie";
@@ -286,11 +340,11 @@ $(function () {
             timeToNextSlide = parseFloat(timeByCookie) * 1000;
             $('#timeToNextSlide').val(timeByCookie);
         }
-        
+
         $('#fullScreenButton').click(toggleFullScreen);
 
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
-        
+
         $('#prevButton').click(prevSlide);
         $('#nextButton').click(nextSlide);
     };
@@ -320,28 +374,32 @@ $(function () {
         if (pic.url.indexOf('gfycat.com') >= 0){
             pic.isVideo = true;
         } else if (isImageExtension(pic.url)) {
-            // simple image
+            // simple image detected
+            successImageNumber++;
         } else {
             var betterUrl = tryConvertUrl(pic.url);
             if(betterUrl !== '') {
                 pic.url = betterUrl;
+                successImageNumber++;
             } else {
-                if (rp.debug) {
-                    console.log('failed: ' + pic.url);
+                if (ep.debug) {
+                    reason = ('Picture isn\'t a usable format.');
+                    console.log('Failed: ' + pic.url + ' Reason: ' + reason);
+                    failedImageNumber++;
                 }
                 return;
             }
         }
 
-        rp.foundOneImage = true;
-        
-        preLoadImages(pic.url);
-        rp.photos.push(pic);
+        ep.foundOneImage = true;
 
-        var i = rp.photos.length - 1;
+        preLoadImages(pic.url);
+        ep.photos.push(pic);
+
+        var i = ep.photos.length - 1;
         var numberButton = $("<a />").html(i + 1)
             .data("index", i)
-            .attr("title", rp.photos[i].title)
+            .attr("title", ep.photos[i].title)
             .attr("id", "numberButton" + (i + 1));
         if(pic.over18) {
             numberButton.addClass("over18");
@@ -372,7 +430,7 @@ $(function () {
     var R_KEY = 82;
     var T_KEY = 84;
 
-    
+
     // Register keyboard events on the whole document
     $(document).keyup(function (e) {
         if(e.ctrlKey) {
@@ -436,15 +494,15 @@ $(function () {
 
     var isLastImage = function(imageIndex) {
         if(nsfw) {
-            if(imageIndex == rp.photos.length - 1) {
+            if(imageIndex == ep.photos.length - 1) {
                 return true;
             } else {
                 return false;
             }
         } else {
             // look for remaining sfw images
-            for(var i = imageIndex + 1; i < rp.photos.length; i++) {
-                if(!rp.photos[i].over18) {
+            for(var i = imageIndex + 1; i < ep.photos.length; i++) {
+                if(!ep.photos[i].over18) {
                     return false;
                 }
             }
@@ -460,8 +518,8 @@ $(function () {
         resetNextSlideTimer();
 
         // If the same number has been chosen, or the index is outside the
-        // rp.photos range, or we're already animating, do nothing
-        if (activeIndex == imageIndex || imageIndex > rp.photos.length - 1 || imageIndex < 0 || isAnimating || rp.photos.length == 0) {
+        // ep.photos range, or we're already animating, do nothing
+        if (activeIndex == imageIndex || imageIndex > ep.photos.length - 1 || imageIndex < 0 || isAnimating || ep.photos.length == 0) {
             return;
         }
 
@@ -472,7 +530,8 @@ $(function () {
         // Set the active index to the used image index
         activeIndex = imageIndex;
 
-        if (isLastImage(activeIndex) && rp.subredditUrl.indexOf('/imgur') != 0) {
+        if (isLastImage(activeIndex) && ep.subredditUrl.indexOf('/imgur') != 0) {
+            pageNumber++;
             getRedditImages();
         }
     };
@@ -490,11 +549,11 @@ $(function () {
     // Animate the navigation box
     //
     var animateNavigationBox = function (imageIndex) {
-        var photo = rp.photos[imageIndex];
-        var subreddit = '/r/' + photo.subreddit;
+        var photo = ep.photos[imageIndex];
+        //var subreddit = '/r/' + photo.subreddit;
 
         $('#navboxTitle').html(photo.title);
-        $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
+        //$('#navboxSubreddit').attr('href', ep.redditBaseUrl + subreddit).html(subreddit);
         $('#navboxLink').attr('href', photo.url).attr('title', photo.title);
         $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments on reddit");
 
@@ -508,7 +567,7 @@ $(function () {
     var slideBackgroundPhoto = function (imageIndex) {
 
         // Retrieve the accompanying photo based on the index
-        var photo = rp.photos[imageIndex];
+        var photo = ep.photos[imageIndex];
 
         // Create a new div and apply the CSS
         var cssMap = Object();
@@ -560,26 +619,26 @@ $(function () {
         });
     };
 
-    
-    
+
+
     var verifyNsfwMakesSense = function() {
         // Cases when you forgot NSFW off but went to /r/nsfw
         // can cause strange bugs, let's help the user when over 80% of the
         // content is NSFW.
         var nsfwImages = 0;
-        for(var i = 0; i < rp.photos.length; i++) {
-            if(rp.photos[i].over18) {
+        for(var i = 0; i < ep.photos.length; i++) {
+            if(ep.photos[i].over18) {
                 nsfwImages += 1;
             }
         }
-        
-        if(0.8 < nsfwImages * 1.0 / rp.photos.length) {
+
+        if(0.8 < nsfwImages * 1.0 / ep.photos.length) {
             nsfw = true;
             $("#nsfw").prop("checked", nsfw);
         }
     };
-    
-    
+
+
     var tryConvertUrl = function (url) {
         if (url.indexOf('imgur.com') > 0 || url.indexOf('/gallery/') > 0) {
             // special cases with imgur
@@ -596,7 +655,7 @@ $(function () {
                 //console.log('Unsupported gallery: ' + url);
                 return '';
             }
-            
+
             // imgur is really nice and serves the image with whatever extension
             // you give it. '.jpg' is arbitrary
             // regexp removes /r/<sub>/ prefix if it exists
@@ -626,12 +685,12 @@ $(function () {
     var decodeUrl = function (url) {
         return decodeURIComponent(url.replace(/\+/g, " "));
     };
-    rp.getRestOfUrl = function () {
+    ep.getRestOfUrl = function () {
         // Separate to before the question mark and after
         // Detect predefined reddit url paths. If you modify this be sure to fix
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
-        
+
         var regexS = "(/(?:(?:r/)|(?:imgur/a/)|(?:user/)|(?:domain/)|(?:search))[^&#?]*)[?]?(.*)";
         var regex = new RegExp(regexS);
         var results = regex.exec(window.location.href);
@@ -644,18 +703,18 @@ $(function () {
     };
 
     var failCleanup = function() {
-        if (rp.photos.length > 0) {
+        if (ep.photos.length > 0) {
             // already loaded images, don't ruin the existing experience
             return;
         }
-        
+
         // remove "loading" title
         $('#navboxTitle').text('');
-        
+
         // display alternate recommendations
         $('#recommend').css({'display':'block'});
     };
-    
+
     var getRedditImages = function () {
         //if (noMoreToLoad){
         //    log("No more images to load, will rotate to start.");
@@ -663,8 +722,23 @@ $(function () {
         //}
 
         loadingNextImages = true;
+        failedImageNumber = 0;
+        successImageNumber = 0;
 
-        var jsonUrl = rp.redditBaseUrl + rp.subredditUrl + ".json?jsonp=?" + after + "&" + getVars;
+        //Checks what the NSFW tag is and sets the image rating
+        if(nsfw){
+            rating = "rating:e";
+            //Leaving out questionable from NSFW -- If Wanting questionable in NSFW uncomment line below
+            //rating = rating+"+rating:q";
+        }else{
+            rating = "rating:s";
+            //Leading out questinable from SFW -- If Wanting questionable in SFW uncomment line below
+            //rating = rating+"+rating:q";
+        }
+
+        //var jsonUrl = ep.redditBaseUrl + ep.subredditUrl + ".json?jsonp=?" + after + "&" + getVars;
+        // Sets the json variable to the local getXML.php script on the server with the needed variables.
+        var jsonUrl = '/getXML.php?tags='+rating+'+'+tags+'&page='+pageNumber+'&limit='+limit;
         console.log(jsonUrl);
         //log(jsonUrl);
         var failedAjax = function (data) {
@@ -675,52 +749,75 @@ $(function () {
             //redditData = data //global for debugging data
             // NOTE: if data.data.after is null then this causes us to start
             // from the top on the next getRedditImages which is fine.
-            after = "&after=" + data.data.after;
+            //after = "&after=" + data.data.after;
 
-            if (data.data.children.length === 0) {
+            if (data.getElementsByTagName("post").length === 0) {
                 alert("No data from this url :(");
                 return;
             }
 
-            $.each(data.data.children, function (i, item) {
+            $.each(data.getElementsByTagName("post"), function (i, item) {
                 addImageSlide({
-                    url: item.data.url,
-                    title: item.data.title,
-                    over18: item.data.over_18,
-                    subreddit: item.data.subreddit,
-                    commentsLink: rp.redditBaseUrl + item.data.permalink
+                    url: item.getAttribute('file_url'),
+                    title: "Posted by: "+item.getAttribute('author'),
+                    //over18: item.data.over_18,
+                    // Subreddit is empty string to not anger imgur functionality. Will be removed in future.
+                    subreddit: '',
+                    commentsLink: "https://e621.net/post/show/"+item.getAttribute("id"),
+                    rating: item.getAttribute('rating')
                 });
             });
 
             verifyNsfwMakesSense();
-            
-            if (!rp.foundOneImage) {
+
+            if (!ep.foundOneImage) {
                 // Note: the jsonp url may seem malformed but jquery fixes it.
                 //log(jsonUrl);
-                alert("Sorry, no displayable images found in that url :(");
+                //alert("Sorry, no displayable images found in that url :(");
+                alert("No displayable images found in that url, force loading next API page.");
+                getRedditImages();
+                startAnimation(imageIndex + 1);
             }
 
             // show the first image
             if (activeIndex == -1) {
                 startAnimation(0);
+                return;
             }
 
-            if (data.data.after == null) {
-                log("No more pages to load from this subreddit, reloading the start");
+            // If total number of images in XML equal the limit, attempt to load the next page.
+            if (failedImageNumber + successImageNumber == limit) {
+                pageNumber++;
+                if(isLastImage(activeIndex)){
+                  //Loads next API page if at end of list and starts navigation.
+                  getRedditImages();
+                }
+                return;
+            }else{
+                console.log(failedImageNumber);
+                console.log(successImageNumber);
+                console.log(limit);
+                alert("No more data from this URL :(")
+                return;
+            }
+
+            // If the total number of posts in the API are smaller than the total posts requested per page, not enough to fill page, hence no more pages.
+            if (data.getElementById('post') < limit) {
+                log("No more pages to load from the API, reloading the start");
 
                 // Show the user we're starting from the top
                 var numberButton = $("<span />").addClass("numberButton").text("-");
                 addNumberButton(numberButton);
             }
             loadingNextImages = false;
-            
+
         };
 
         // I still haven't been able to catch jsonp 404 events so the timeout
         // is the current solution sadly.
         $.ajax({
             url: jsonUrl,
-            dataType: 'jsonp',
+            dataType: 'xml',
             success: handleData,
             error: failedAjax,
             404: failedAjax,
@@ -728,7 +825,7 @@ $(function () {
         });
     };
 
-    var getImgurAlbum = function (url) {
+/*  var getImgurAlbum = function (url) {
         var albumID = url.match(/.*\/(.+?$)/)[1];
         var jsonUrl = 'https://api.imgur.com/3/album/' + albumID;
         //log(jsonUrl);
@@ -751,12 +848,12 @@ $(function () {
                     title: item.title,
                     over18: item.nsfw,
                     commentsLink: ""
-                });                
+                });
             });
 
             verifyNsfwMakesSense();
 
-            if (!rp.foundOneImage) {
+            if (!ep.foundOneImage) {
                 log(jsonUrl);
                 alert("Sorry, no displayable images found in that url :(");
             }
@@ -786,38 +883,39 @@ $(function () {
                 xhr.setRequestHeader('Authorization',
                     'Client-ID ' + 'f2edd1ef8e66eaf');}
         });
-    };
+    }; */
 
     var setupUrls = function() {
-        rp.urlData = rp.getRestOfUrl();
-        //log(rp.urlData)
-        rp.subredditUrl = rp.urlData[0];
-        getVars = rp.urlData[1];
-        
+        ep.urlData = ep.getRestOfUrl();
+        //log(ep.urlData)
+        ep.subredditUrl = ep.urlData[0];
+        getVars = ep.urlData[1];
+
         if (getVars.length > 0) {
             getVarsQuestionMark = "?" + getVars;
         } else {
             getVarsQuestionMark = "";
         }
 
+        /*
         // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
-        rp.subredditUrl = rp.subredditUrl.replace(/.compact/, "");
+        ep.subredditUrl = ep.subredditUrl.replace(/.compact/, "");
         // Consolidate double slashes to avoid r/all/.compact/ -> r/all//
-        rp.subredditUrl = rp.subredditUrl.replace(/\/{2,}/, "/");
+        ep.subredditUrl = ep.subredditUrl.replace(/\/{2,}/, "/");
 
         var subredditName;
-        if (rp.subredditUrl === "") {
-            rp.subredditUrl = "/";
+        if (ep.subredditUrl === "") {
+            ep.subredditUrl = "/";
             subredditName = "reddit.com" + getVarsQuestionMark;
             //var options = ["/r/aww/", "/r/earthporn/", "/r/foodporn", "/r/pics"];
-            //rp.subredditUrl = options[Math.floor(Math.random() * options.length)];
+            //ep.subredditUrl = options[Math.floor(Math.random() * options.length)];
         } else {
-            subredditName = rp.subredditUrl + getVarsQuestionMark;
+            subredditName = ep.subredditUrl + getVarsQuestionMark;
         }
-        
 
-        var visitSubredditUrl = rp.redditBaseUrl + rp.subredditUrl + getVarsQuestionMark;
-        
+
+        var visitSubredditUrl = ep.redditBaseUrl + ep.subredditUrl + getVarsQuestionMark;
+
         // truncate and display subreddit name in the control box
         var displayedSubredditName = subredditName;
         // empirically tested capsize, TODO: make css rules to verify this is enough.
@@ -827,31 +925,32 @@ $(function () {
             displayedSubredditName = displayedSubredditName.substr(0,capsize) + "&hellip;";
         }
         $('#subredditUrl').html("<a href='" + visitSubredditUrl + "'>" + displayedSubredditName + "</a>");
-
-        document.title = "redditP - " + subredditName;
+        */
+        $('#subredditUrl').html("<a href=\' https://www.e621.net \'> E621.net</a>");
+        document.title = "E621P - " + tags;
     };
-    
-    
 
-    
-    rp.redditBaseUrl = "http://www.reddit.com";
+
+
+
+    ep.redditBaseUrl = "http://www.reddit.com";
     if (location.protocol === 'https:') {
         // page is secure
-        rp.redditBaseUrl = "https://www.reddit.com";
+        ep.redditBaseUrl = "https://www.reddit.com";
         // TODO: try "//" instead of specifying the protocol
     }
 
     var getVars;
-    var after = "";
-    
+    //var after = "";
+
     initState();
     setupUrls();
 
     // if ever found even 1 image, don't show the error
-    rp.foundOneImage = false;
+    ep.foundOneImage = false;
 
-    if(rp.subredditUrl.indexOf('/imgur') == 0)
-        getImgurAlbum(rp.subredditUrl);
-    else
+/*  if(ep.subredditUrl.indexOf('/imgur') == 0)
+        getImgurAlbum(ep.subredditUrl);
+    else                                         */
         getRedditImages();
 });
