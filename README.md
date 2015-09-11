@@ -31,11 +31,11 @@ How to use
 
 An example of the functionality of the website; 
 
-http://e621p.webege.com/?tags=<TAGS>&page=<PAGE_NO>&limit=<NO_IMG_PER_API_REQ>
+`http://e621p.webege.com/?tags=<TAGS>&page=<PAGE_NO>&limit=<NO_IMG_PER_API_REQ>`
 
 This is the base syntax of the website's url. There isn't a search bar implemented so you will either have to enter the variables into the URL bar or copy the tag's from the E621 Search bar.
 
-Single tags - http://e621p.webege.com/?tags=wolf&page=1&limit=15>
+Single tags - http://e621p.webege.com/?tags=wolf&page=1&limit=15
 This indicates that were searching for anything tagged with wolf, starting on page one and are loading 15 images per load cycle.
 
 Multiple tags - http://e621p.webege.com/?tags=wolf+order:score&page=1&limit=15
