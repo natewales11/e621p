@@ -1,6 +1,9 @@
 /*
-  Author of RedditP: Yuval Greenfield (http://ubeepython.wordpress.com)
+  Author: Yuval Greenfield (http://uberpython.wordpress.com)
   Modifier to E621P: SilentDeath1 (https://github.com/SilentDeath1/e621p)
+
+  You can save the HTML file and use it locally btw like so:
+    file:///wherever/index.html?tags=wolf
 
   Favicon by Double-J designs http://www.iconfinder.com/icondetails/68600/64/_icon
   HTML based on http://demo.marcofolio.net/fullscreen_image_slider/
@@ -10,8 +13,6 @@
 // TODO: refactor all the globals to use the ep object's namespace.
 var ep = {};
 ep.debug = true;
-// If there are no images loaded from the First URL for some reason (incorrect format), imageIndex is needed for startAnimation.
-imageIndex = 0;
 
 // Speed of the animation
 var animationSpeed = 1000;
@@ -20,14 +21,14 @@ var timeToNextSlide = 6 * 1000;
 var cookieDays = 300;
 
 // These vars are used for AJAX Url.
-var tags = '';
-var limit = 10;
-var pageNumber = 1;
-var rating = '';
+var e621pTags = '';
+var e621pLimit = 10;
+var e621pPageNumber = 1;
+var e621pRating = '';
 
 // These variables are used to decide if there is more data from the API.
-var failedImageNumber = 0;
-var successImageNumber = 0;
+var e621pFailedImageNumber = 0;
+var e621pSuccessImageNumber = 0;
 
 // Variable to store the images we need to set as background
 // which also includes some text and url's.
@@ -66,27 +67,28 @@ $(function () {
     $("#subredditUrl").text("Loading E621 Slideshow");
     $("#navboxTitle").text("Loading E621 Slideshow");
 
+    //Get Query Variables From URL.
+
     if(getQueryVariable("tags")== '' /*|| (typeof getQueryVariable("tags")) != "string"*/){
-			tags = '';
+			e621pTags = '';
       console.log('You can search specific tags by specifying ?tags= in the URL e.g. /?tags=wolf&page=1&limit=10');
 		}else{
-			tags = getQueryVariable("tags");
+			e621pTags = getQueryVariable("tags");
 		}
 
 		if(getQueryVariable("page")== 0 /*|| (typeof getQueryVariable("page")) != "number"*/){
-			afterNumber = 1;
+			e621pPageNumber = 1;
       console.log('You can select a specific page for results by specifying ?page= in the URL e.g. /?tags=wolf&page=1&limit=10');
 		}else{
-			afterNumber = getQueryVariable("page");
+			e621pPageNumber = getQueryVariable("page");
 		}
 
     if(getQueryVariable("limit")== 0 /*|| ((typeof getQueryVariable("limit")) != "number")*/){
-			limit = 5;
+			e621pLimit = 5;
       console.log('You can specify images per load cycle by specifying ?limit= in the URL e.g. /?tags=wolf&page=1&limit=10');
 		}else{
-			limit = getQueryVariable("limit");
+			e621pLimit = getQueryVariable("limit");
 		}
-
 
     fadeoutWhenIdle = true;
     var setupFadeoutOnIdle = function () {
@@ -159,7 +161,7 @@ $(function () {
            var pair = vars[i].split("=");
            if(pair[0] == variable){return pair[1];}
      }
-      return(false);
+    return(false);
     }
 
     function open_in_background(selector){
@@ -231,19 +233,11 @@ $(function () {
         }
     };
 
-    var setCookie = function (c_name, value, exdays, dors) {
-        if(dors == "d"){
-            var exdate = new Date();
-            exdate.setDate(exdate.getDate() + exdays);
-            var c_value = escape(value) + ((exdays === null) ? "" : "; expires=" + exdate.toUTCString());
-            document.cookie = c_name + "=" + c_value;
-        }
-        if(dors == "s"){
-            var exdate = new Date();
-            exdate.setDate(exdate.getTime() + exdays*1000*60);
-            var c_value = escape(value) + ((exdays === null) ? "" : "; expires=" + exdate.toUTCString());
-            document.cookie = c_name + "=" + c_value;
-        }
+    var setCookie = function (c_name, value, exdays) {
+        var exdate = new Date();
+        exdate.setDate(exdate.getDate() + exdays);
+        var c_value = escape(value) + ((exdays === null) ? "" : "; expires=" + exdate.toUTCString());
+        document.cookie = c_name + "=" + c_value;
     };
 
     var getCookie = function (c_name) {
@@ -267,7 +261,7 @@ $(function () {
     shouldAutoNextSlideCookie = "shouldAutoNextSlideCookie";
     var updateAutoNext = function () {
         shouldAutoNextSlide = $("#autoNextSlide").is(':checked');
-        setCookie(shouldAutoNextSlideCookie, shouldAutoNextSlide, cookieDays,"d");
+        setCookie(shouldAutoNextSlideCookie, shouldAutoNextSlide, cookieDays);
         resetNextSlideTimer();
     };
 
@@ -300,12 +294,8 @@ $(function () {
     nsfwCookie = "nsfwCookie";
     var updateNsfw = function () {
         nsfw = $("#nsfw").is(':checked');
-        setCookie(nsfwCookie, nsfw, cookieDays,"d");
+        setCookie(nsfwCookie, nsfw, cookieDays);
     };
-
-    validCookie = "validCookie";
-    setCookie(validCookie, true, 5,"s")
-
 
     var initState = function () {
         var nsfwByCookie = getCookie(nsfwCookie);
@@ -329,7 +319,7 @@ $(function () {
         var updateTimeToNextSlide = function () {
             var val = $('#timeToNextSlide').val();
             timeToNextSlide = parseFloat(val) * 1000;
-            setCookie(timeToNextSlideCookie, val, cookieDays,"d");
+            setCookie(timeToNextSlideCookie, val, cookieDays);
         };
 
         var timeToNextSlideCookie = "timeToNextSlideCookie";
@@ -371,21 +361,22 @@ $(function () {
         }
         */
         pic.isVideo = false;
-        if (pic.url.indexOf('gfycat.com') >= 0){
+        if (pic.url.indexOf('gfycat.com') >= 0 | (pic.url.substr(pic.url.lastIndexOf('.')+1)) == "webm"){
             pic.isVideo = true;
+            e621pSuccessImageNumber++;
         } else if (isImageExtension(pic.url)) {
-            // simple image detected
-            successImageNumber++;
+            // simple image
+            e621pSuccessImageNumber++;
         } else {
             var betterUrl = tryConvertUrl(pic.url);
             if(betterUrl !== '') {
                 pic.url = betterUrl;
-                successImageNumber++;
+                e621pSuccessImageNumber++;
             } else {
                 if (ep.debug) {
                     reason = ('Picture isn\'t a usable format.');
                     console.log('Failed: ' + pic.url + ' Reason: ' + reason);
-                    failedImageNumber++;
+                    e621pFailedImageNumber++;
                 }
                 return;
             }
@@ -531,7 +522,7 @@ $(function () {
         activeIndex = imageIndex;
 
         if (isLastImage(activeIndex) && ep.subredditUrl.indexOf('/imgur') != 0) {
-            pageNumber++;
+            // e621pPageNumber++;
             getRedditImages();
         }
     };
@@ -550,12 +541,12 @@ $(function () {
     //
     var animateNavigationBox = function (imageIndex) {
         var photo = ep.photos[imageIndex];
-        //var subreddit = '/r/' + photo.subreddit;
+        var subreddit = '/r/' + photo.subreddit;
 
         $('#navboxTitle').html(photo.title);
         //$('#navboxSubreddit').attr('href', ep.redditBaseUrl + subreddit).html(subreddit);
         $('#navboxLink').attr('href', photo.url).attr('title', photo.title);
-        $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments on reddit");
+        $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments on e621");
 
         toggleNumberButton(activeIndex, false);
         toggleNumberButton(imageIndex, true);
@@ -581,19 +572,24 @@ $(function () {
 
         //var imgNode = $("<img />").attr("src", photo.image).css({opacity:"0", width: "100%", height:"100%"});
         var divNode = $("<div />").css(cssMap).addClass("clouds");
-        if(photo.isVideo) {
+        if(photo.isVideo & photo.url.indexOf('gfycat.com') >= 0) {
             clearTimeout(nextSlideTimeoutId);
             var gfyid = photo.url.substr(1 + photo.url.lastIndexOf('/'));
             if(gfyid.indexOf('#') != -1)
                 gfyid = gfyid.substr(0, gfyid.indexOf('#'));
             divNode.html('<img class="gfyitem" data-id="'+gfyid+'" data-controls="false"/>');
         }
+        if(photo.isVideo & photo.url.indexOf('gfycat.com') >= 0 | (photo.url.substr(photo.url.lastIndexOf('.')+1)) == "webm"){
+          //console.log("correct");
+          divNode.html('<video autoplay class="webm" width="100%" height="100%" onended="slideNext()" controls> <source src="'+photo.url+'"type="video/webm"></video>');
+        }
 
         //imgNode.appendTo(divNode);
         divNode.prependTo("#pictureSlider");
 
         $("#pictureSlider div").fadeIn(animationSpeed);
-        if(photo.isVideo){
+        if(photo.isVideo & photo.url.indexOf('gfycat.com') >= 0){
+          //console.log("giffy");
             gfyCollection.init();
             //ToDo: find a better solution!
             $(divNode).bind("DOMNodeInserted", function(e) {
@@ -605,11 +601,22 @@ $(function () {
                     if (shouldAutoNextSlide)
                         v.removeAttr('loop');
                     v[0].onended = function (e) {
-                        if (shouldAutoNextSlide)
-                            nextSlide();
+                        if (shouldAutoNextSlide){
+                          setTimeout(function(){nextSlide();},500);
+                        }
+
                     };
                 }
             });
+        }else{
+          $(divNode).bind("DOMNodeInserted", function(e) {
+               var vid = $('#pictureSlider > div > video');
+               var v = vid[0];
+               v[0].onended = function (e) {
+                 if (shouldAutoNextSlide)
+                     nextSlide();
+                   };
+               });
         }
 
         var oldDiv = $("#pictureSlider div:not(:first)");
@@ -617,6 +624,7 @@ $(function () {
             oldDiv.remove();
             isAnimating = false;
         });
+
     };
 
 
@@ -665,7 +673,7 @@ $(function () {
 
         return '';
     };
-    var goodExtensions = ['.jpg', '.jpeg', '.gif', '.bmp', '.png'];
+    var goodExtensions = ['.jpg', '.jpeg', '.gif', '.bmp', '.png','.webm'];
     var isImageExtension = function (url) {
         var dotLocation = url.lastIndexOf('.');
         if (dotLocation < 0) {
@@ -722,24 +730,22 @@ $(function () {
         //}
 
         loadingNextImages = true;
-        failedImageNumber = 0;
-        successImageNumber = 0;
+        e621pFailedImageNumber = 0;
+        e621pSuccessImageNumber = 0;
 
         //Checks what the NSFW tag is and sets the image rating
         if(nsfw){
-            rating = "rating:e";
+            e621pRating = "rating:e";
             //Leaving out questionable from NSFW -- If Wanting questionable in NSFW uncomment line below
             //rating = rating+"+rating:q";
         }else{
-            rating = "rating:s";
+            e621pRating = "rating:s";
             //Leading out questinable from SFW -- If Wanting questionable in SFW uncomment line below
             //rating = rating+"+rating:q";
         }
 
-        //var jsonUrl = ep.redditBaseUrl + ep.subredditUrl + ".json?jsonp=?" + after + "&" + getVars;
-        // Sets the json variable to the local getXML.php script on the server with the needed variables.
-        var jsonUrl = '/getXML.php?tags='+rating+'+'+tags+'&page='+pageNumber+'&limit='+limit;
-        console.log(jsonUrl);
+        var jsonUrl = "https://e621.net/post/index.json?tags="+e621pRating+"+"+e621pTags +"&limit="+ e621pLimit+"&page="+e621pPageNumber;
+        //console.log(jsonUrl);
         //log(jsonUrl);
         var failedAjax = function (data) {
             alert("Failed ajax, maybe a bad url? Sorry about that :(");
@@ -749,22 +755,27 @@ $(function () {
             //redditData = data //global for debugging data
             // NOTE: if data.data.after is null then this causes us to start
             // from the top on the next getRedditImages which is fine.
-            //after = "&after=" + data.data.after;
+            // after = "&after=" + data.data.after;
 
-            if (data.getElementsByTagName("post").length === 0) {
+            returnJson = data;
+
+            if (returnJson.length === 0) {
                 alert("No data from this url :(");
                 return;
             }
 
-            $.each(data.getElementsByTagName("post"), function (i, item) {
+            $.each(returnJson, function (i, item) {
+              if(item.rating == "e" | item.rating == "q"){
+                isOver18 = true;
+              }else{
+                isOver18 = false;
+              }
                 addImageSlide({
-                    url: item.getAttribute('file_url'),
-                    title: "Posted by: "+item.getAttribute('author'),
-                    //over18: item.data.over_18,
-                    // Subreddit is empty string to not anger imgur functionality. Will be removed in future.
-                    subreddit: '',
-                    commentsLink: "https://e621.net/post/show/"+item.getAttribute("id"),
-                    rating: item.getAttribute('rating')
+                    url: item.file_url,
+                    title: item.author,
+                    over18: isOver18,
+                    subreddit: "",
+                    commentsLink: "https://e621.net/post/show/" + item.id
                 });
             });
 
@@ -773,8 +784,7 @@ $(function () {
             if (!ep.foundOneImage) {
                 // Note: the jsonp url may seem malformed but jquery fixes it.
                 //log(jsonUrl);
-                //alert("Sorry, no displayable images found in that url :(");
-                alert("No displayable images found in that url, force loading next API page.");
+                alert("Sorry, no displayable images found in that url :(");
                 getRedditImages();
                 startAnimation(imageIndex + 1);
             }
@@ -782,27 +792,25 @@ $(function () {
             // show the first image
             if (activeIndex == -1) {
                 startAnimation(0);
-                return;
             }
 
-            // If total number of images in XML equal the limit, attempt to load the next page.
-            if (failedImageNumber + successImageNumber == limit) {
-                pageNumber++;
+            if (e621pFailedImageNumber + e621pSuccessImageNumber == e621pLimit) {
+                e621pPageNumber++;
                 if(isLastImage(activeIndex)){
                   //Loads next API page if at end of list and starts navigation.
                   getRedditImages();
                 }
                 return;
             }else{
-                console.log(failedImageNumber);
-                console.log(successImageNumber);
-                console.log(limit);
+                // console.log(e621pFailedImageNumber);
+                // console.log(e621pSuccessImageNumber);
+                // console.log(e621pLimit);
                 alert("No more data from this URL :(")
                 return;
             }
 
             // If the total number of posts in the API are smaller than the total posts requested per page, not enough to fill page, hence no more pages.
-            if (data.getElementById('post') < limit) {
+            if (returnJson.length < limit) {
                 log("No more pages to load from the API, reloading the start");
 
                 // Show the user we're starting from the top
@@ -817,7 +825,7 @@ $(function () {
         // is the current solution sadly.
         $.ajax({
             url: jsonUrl,
-            dataType: 'xml',
+            dataType: 'jsonp',
             success: handleData,
             error: failedAjax,
             404: failedAjax,
@@ -825,65 +833,65 @@ $(function () {
         });
     };
 
-/*  var getImgurAlbum = function (url) {
-        var albumID = url.match(/.*\/(.+?$)/)[1];
-        var jsonUrl = 'https://api.imgur.com/3/album/' + albumID;
-        //log(jsonUrl);
-        var failedAjax = function (data) {
-            alert("Failed ajax, maybe a bad url? Sorry about that :(");
-            failCleanup();
-        };
-        var handleData = function (data) {
-
-            //console.log(data);
-
-            if (data.data.images.length === 0) {
-                alert("No data from this url :(");
-                return;
-            }
-
-            $.each(data.data.images, function (i, item) {
-                addImageSlide({
-                    url: item.link,
-                    title: item.title,
-                    over18: item.nsfw,
-                    commentsLink: ""
-                });
-            });
-
-            verifyNsfwMakesSense();
-
-            if (!ep.foundOneImage) {
-                log(jsonUrl);
-                alert("Sorry, no displayable images found in that url :(");
-            }
-
-            // show the first image
-            if (activeIndex == -1) {
-                startAnimation(0);
-            }
-
-            //log("No more pages to load from this subreddit, reloading the start");
-
-            // Show the user we're starting from the top
-            //var numberButton = $("<span />").addClass("numberButton").text("-");
-            //addNumberButton(numberButton);
-
-            loadingNextImages = false;
-        };
-
-        $.ajax({
-            url: jsonUrl,
-            dataType: 'json',
-            success: handleData,
-            error: failedAjax,
-            404: failedAjax,
-            timeout: 5000,
-            beforeSend : function(xhr) {
-                xhr.setRequestHeader('Authorization',
-                    'Client-ID ' + 'f2edd1ef8e66eaf');}
-        });
-    }; */
+    // var getImgurAlbum = function (url) {
+    //     var albumID = url.match(/.*\/(.+?$)/)[1];
+    //     var jsonUrl = 'https://api.imgur.com/3/album/' + albumID;
+    //     //log(jsonUrl);
+    //     var failedAjax = function (data) {
+    //         alert("Failed ajax, maybe a bad url? Sorry about that :(");
+    //         failCleanup();
+    //     };
+    //     var handleData = function (data) {
+    //
+    //         //console.log(data);
+    //
+    //         if (data.data.images.length === 0) {
+    //             alert("No data from this url :(");
+    //             return;
+    //         }
+    //
+    //         $.each(data.data.images, function (i, item) {
+    //             addImageSlide({
+    //                 url: item.link,
+    //                 title: item.title,
+    //                 over18: item.nsfw,
+    //                 commentsLink: ""
+    //             });
+    //         });
+    //
+    //         verifyNsfwMakesSense();
+    //
+    //         if (!ep.foundOneImage) {
+    //             log(jsonUrl);
+    //             alert("Sorry, no displayable images found in that url :(");
+    //         }
+    //
+    //         // show the first image
+    //         if (activeIndex == -1) {
+    //             startAnimation(0);
+    //         }
+    //
+    //         //log("No more pages to load from this subreddit, reloading the start");
+    //
+    //         // Show the user we're starting from the top
+    //         //var numberButton = $("<span />").addClass("numberButton").text("-");
+    //         //addNumberButton(numberButton);
+    //
+    //         loadingNextImages = false;
+    //     };
+    //
+    //     $.ajax({
+    //         url: jsonUrl,
+    //         dataType: 'json',
+    //         success: handleData,
+    //         error: failedAjax,
+    //         404: failedAjax,
+    //         timeout: 5000,
+    //         beforeSend : function(xhr) {
+    //             xhr.setRequestHeader('Authorization',
+    //                 'Client-ID ' + 'f2edd1ef8e66eaf');}
+    //     });
+    // };
 
     var setupUrls = function() {
         ep.urlData = ep.getRestOfUrl();
@@ -897,37 +905,35 @@ $(function () {
             getVarsQuestionMark = "";
         }
 
-        /*
-        // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
-        ep.subredditUrl = ep.subredditUrl.replace(/.compact/, "");
-        // Consolidate double slashes to avoid r/all/.compact/ -> r/all//
-        ep.subredditUrl = ep.subredditUrl.replace(/\/{2,}/, "/");
-
-        var subredditName;
-        if (ep.subredditUrl === "") {
-            ep.subredditUrl = "/";
-            subredditName = "reddit.com" + getVarsQuestionMark;
-            //var options = ["/r/aww/", "/r/earthporn/", "/r/foodporn", "/r/pics"];
-            //ep.subredditUrl = options[Math.floor(Math.random() * options.length)];
-        } else {
-            subredditName = ep.subredditUrl + getVarsQuestionMark;
-        }
-
-
-        var visitSubredditUrl = ep.redditBaseUrl + ep.subredditUrl + getVarsQuestionMark;
-
-        // truncate and display subreddit name in the control box
-        var displayedSubredditName = subredditName;
-        // empirically tested capsize, TODO: make css rules to verify this is enough.
-        // it would make the "nsfw" checkbox be on its own line :(
-        var capsize = 19;
-        if(displayedSubredditName.length > capsize) {
-            displayedSubredditName = displayedSubredditName.substr(0,capsize) + "&hellip;";
-        }
-        $('#subredditUrl').html("<a href='" + visitSubredditUrl + "'>" + displayedSubredditName + "</a>");
-        */
+        // // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
+        // ep.subredditUrl = ep.subredditUrl.replace(/.compact/, "");
+        // // Consolidate double slashes to avoid r/all/.compact/ -> r/all//
+        // ep.subredditUrl = ep.subredditUrl.replace(/\/{2,}/, "/");
+        //
+        // var subredditName;
+        // if (ep.subredditUrl === "") {
+        //     ep.subredditUrl = "/";
+        //     subredditName = "reddit.com" + getVarsQuestionMark;
+        //     //var options = ["/r/aww/", "/r/earthporn/", "/r/foodporn", "/r/pics"];
+        //     //ep.subredditUrl = options[Math.floor(Math.random() * options.length)];
+        // } else {
+        //     subredditName = ep.subredditUrl + getVarsQuestionMark;
+        // }
+        //
+        //
+        // var visitSubredditUrl = ep.redditBaseUrl + ep.subredditUrl + getVarsQuestionMark;
+        //
+        // // truncate and display subreddit name in the control box
+        // var displayedSubredditName = subredditName;
+        // // empirically tested capsize, TODO: make css rules to verify this is enough.
+        // // it would make the "nsfw" checkbox be on its own line :(
+        // var capsize = 19;
+        // if(displayedSubredditName.length > capsize) {
+        //     displayedSubredditName = displayedSubredditName.substr(0,capsize) + "&hellip;";
+        // }
         $('#subredditUrl').html("<a href=\' https://www.e621.net \'> E621.net</a>");
-        document.title = "E621P - " + tags;
+
+        document.title = "redditP - " + e621pTags;
     };
 
 
@@ -941,7 +947,7 @@ $(function () {
     }
 
     var getVars;
-    //var after = "";
+    // var after = "";
 
     initState();
     setupUrls();
@@ -949,8 +955,24 @@ $(function () {
     // if ever found even 1 image, don't show the error
     ep.foundOneImage = false;
 
-/*  if(ep.subredditUrl.indexOf('/imgur') == 0)
-        getImgurAlbum(ep.subredditUrl);
-    else                                         */
+    // if(ep.subredditUrl.indexOf('/imgur') == 0)
+    //     getImgurAlbum(ep.subredditUrl);
+    // else
         getRedditImages();
+
+        window.slideNext = function(){
+            if(!nsfw) {
+                for(var i = activeIndex + 1; i < ep.photos.length; i++) {
+                    if (!ep.photos[i].over18) {
+                        return startAnimation(i);
+                    }
+                }
+            }
+            if (isLastImage(activeIndex) && !loadingNextImages) {
+                // the only reason we got here and there aren't more pictures yet
+                // is because there are no more images to load, start over
+                return startAnimation(0);
+            }
+            startAnimation(activeIndex + 1);
+        }
 });
