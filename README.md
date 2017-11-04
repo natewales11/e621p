@@ -3,7 +3,7 @@ e621p
 
 A full screen E621 presentation or slide show.
 
-http://e621p.webege.com <temporary>
+http://silentdeath1.github.io/e621p/
 
 Hotkeys
 -------
@@ -25,6 +25,6 @@ Features
 * Ability to switch between NSFW and SFW content at a click of a button. (This relies on the images being tagged correctly on E621.net)
 * You can save the html file locally and use it, just make sure you add a separator e.g. the question mark in file://path/to/e621p/index.html?tags=fox so the browser knows to pick up the right file and get the correct tags.
 
-Source:
-	Made by Ubershmekel http://uberpython.wordpress.com/ - RedditP https://github.com/ubershmekel/redditp
+Sources:
+	* RedditP - Made by Ubershmekel http://uberpython.wordpress.com/ - https://github.com/ubershmekel/redditp
 
