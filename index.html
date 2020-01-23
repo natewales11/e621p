@@ -6,7 +6,7 @@
         <meta name="description" content="A fullscreen presentation or slide show of e621. e621p" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="format-detection" content="date=no" />
-        <meta name="format-detection" content="address=no" />   
+        <meta name="format-detection" content="address=no" />
         <link rel="shortcut icon" href="./images/favicon.png" />
         <link rel="stylesheet" type="text/css" href="./css/style.css" />
         <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
@@ -27,6 +27,15 @@
     <body id="page">
         <div class="prevArrow fadeOnIdle" title="The arrow keys work too" id="prevButton"></div>
         <div class="nextArrow fadeOnIdle" title="Try the arrow keys too" id="nextButton"></div>
+        <div id="moreControlsDiv" data-openstate="closed" class="navbox clouds fadeOnIdle">
+            <div id="moreControlsContents">
+              <ul class="nbmenu">
+                <li>
+                  <input class="checkbox" type="checkbox" name="vidsInFull" id="vidsInFull" value="Auto" />
+                </li>
+              </ul>
+            </div>
+        </div>
         <div id="controlsDiv" class='navbox clouds fadeOnIdle'>
             <div class="collapser" data-openstate="open">-</div>
             <div id="navboxContents">
@@ -41,6 +50,7 @@
                         <input class="checkbox" type="checkbox" name="nsfw" id="nsfw" value="Auto" checked />
                         <label class="checkbox over18" for="nsfw"> nsfw</label>
                         <img src="./images/fullscreen.png" id="fullScreenButton" alt="Fullscreen" />
+                        <a title="more settings">more</a>
                     </li>
                 </ul>
                 <ul class="nbmenu">
@@ -73,7 +83,7 @@
             <h3><a id='navboxSubreddit' href="http://www.reddit.com">
                 <noscript>Javascript is required for redditp to work :(</noscript>
             </a></h3>
-        </div>        
+        </div>
         <div id="recommend" style="display:none; text-align: center; margin: 10px; color: rgb(170, 170, 170);">
             <p>Maybe try these presentations instead:</p>
             <ul>
@@ -102,7 +112,7 @@
                   <a href="/?tags=gay&page=&limit=10">gay</a>
               </li>
           </ul>
-        </div>   
+        </div>
         <div id="pictureSlider">
             <!-- Pictures will be injected by jQuery -->
             <div>

@@ -221,6 +221,28 @@ $(function () {
         }
     });
 
+    // add more settings in a different section
+    $('.moreControlsDiv').click(function() {
+      var state = $(this).attr(OPENSTATE_ATTR);
+      if (state == "open") {
+          // close it
+          $(this).text("more");
+          // move to the left just enough so the collapser arrow is visible
+          var arrowLeftPoint = $(this).position().left;
+          $(this).parent().animate({
+              left: "-" + arrowLeftPoint + "px"
+          });
+          $(this).attr(OPENSTATE_ATTR, "closed");
+      } else {
+          // open it
+          $(this).text("more (close)");
+          $(this).parent().animate({
+              left: "0px"
+          });
+          $(this).attr(OPENSTATE_ATTR, "open");
+      }
+    });
+
     // maybe checkout http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript/ for implementing the old precache
     var cache = [];
     // Arguments are image paths relative to the current page.
@@ -297,6 +319,12 @@ $(function () {
         setCookie(nsfwCookie, nsfw, cookieDays);
     };
 
+    var vidsInFull = false;
+    $('#vidsInFull').prop("checked", vidsInFull);
+    var updateVidsInFull = function() {
+      $('#vidsInFull').prop("checked", vidsInFull);
+    }
+
     var initState = function () {
         var nsfwByCookie = getCookie(nsfwCookie);
         if (nsfwByCookie == undefined) {
@@ -306,6 +334,8 @@ $(function () {
             $("#nsfw").prop("checked", nsfw);
         }
         $('#nsfw').change(updateNsfw);
+        $('#vidsInFull').change(updateVidsInFull);
+
 
         var autoByCookie = getCookie(shouldAutoNextSlideCookie);
         if (autoByCookie == undefined) {
